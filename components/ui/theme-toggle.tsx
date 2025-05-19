@@ -1,17 +1,20 @@
 "use client";
 
 import { useTheme } from "next-themes";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
+import { useAppDispatch, useAppSelector } from "@/lib/hooks";
+import { setMounted } from "@/lib/features/uiSlice";
 import { Button } from "./button";
 
 export function ThemeToggle() {
-  const [mounted, setMounted] = useState(false);
+  const dispatch = useAppDispatch();
+  const mounted = useAppSelector((state) => state.ui.mounted);
   const { theme, setTheme } = useTheme();
 
   // useEffect only runs on the client, so now we can safely show the UI
   useEffect(() => {
-    setMounted(true);
-  }, []);
+    dispatch(setMounted(true));
+  }, [dispatch]);
 
   if (!mounted) {
     return <div className="w-10 h-10"></div>; // Placeholder to prevent layout shift

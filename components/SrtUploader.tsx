@@ -4,7 +4,13 @@ import { Input } from "@/components/ui/input";
 import { MAX_FILE_SIZE } from "@/lib/constants";
 import { srtFileSchema } from "@/lib/schemas";
 import { extractTextFromSrt, parseSrtContent, SrtEntry } from "@/lib/srt-parser";
-import { useRef, useState } from "react";
+import { useRef } from "react";
+import { useAppDispatch, useAppSelector } from "@/lib/hooks";
+import {
+  setFileName,
+  setUploaderError,
+  setIsDragging,
+} from "@/lib/features/uiSlice";
 
 interface SrtUploaderProps {
   onContentExtracted: (content: string, entries: SrtEntry[]) => void;
@@ -21,9 +27,10 @@ export function SrtUploader({
   entriesCount,
   hasContent,
 }: SrtUploaderProps) {
-  const [fileName, setFileName] = useState<string>("");
-  const [error, setError] = useState<string>("");
-  const [isDragging, setIsDragging] = useState(false);
+  const dispatch = useAppDispatch();
+  const fileName = useAppSelector((state) => state.ui.fileName);
+  const error = useAppSelector((state) => state.ui.uploaderError);
+  const isDragging = useAppSelector((state) => state.ui.isDragging);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -32,12 +39,16 @@ export function SrtUploader({
   };
 
   const processFile = async (file: File) => {
-    setFileName(file.name);
-    setError("");
+    dispatch(setFileName(file.name));
+    dispatch(setUploaderError(""));
 
     // Check file size before any other validation
     if (file.size > MAX_FILE_SIZE) {
-      setError(`File is too large. Maximum size is ${MAX_FILE_SIZE / 1024}KB`);
+      dispatch(
+        setUploaderError(`File is too large. Maximum size is ${
+          MAX_FILE_SIZE / 1024
+        }KB`)
+      );
       return;
     }
 
@@ -49,7 +60,7 @@ export function SrtUploader({
       });
 
       if (!validationResult.success) {
-        setError(validationResult.error.errors[0].message);
+        dispatch(setUploaderError(validationResult.error.errors[0].message));
         return;
       }
 
@@ -62,14 +73,16 @@ export function SrtUploader({
       });
 
       if (!contentValidation.success) {
-        setError(contentValidation.error.errors[0].message);
+        dispatch(setUploaderError(contentValidation.error.errors[0].message));
         return;
       }
 
       const entries = parseSrtContent(content);
 
       if (entries.length === 0) {
-        setError("Could not parse any valid entries from the SRT file");
+        dispatch(
+          setUploaderError("Could not parse any valid entries from the SRT file")
+        );
         return;
       }
 
@@ -84,22 +97,22 @@ export function SrtUploader({
       }, 500);
     } catch (err) {
       console.error("Error reading file:", err);
-      setError("Failed to read the file. Please try again.");
+      dispatch(setUploaderError("Failed to read the file. Please try again."));
     }
   };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
-    setIsDragging(true);
+    dispatch(setIsDragging(true));
   };
 
   const handleDragLeave = () => {
-    setIsDragging(false);
+    dispatch(setIsDragging(false));
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    setIsDragging(false);
+    dispatch(setIsDragging(false));
 
     const file = e.dataTransfer.files?.[0];
     if (file) processFile(file);

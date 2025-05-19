@@ -2,7 +2,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
+import { useAppDispatch, useAppSelector } from "@/lib/hooks";
+import {
+  setProgress,
+  setParsedSections,
+} from "@/lib/features/uiSlice";
 
 interface TimestampResultsProps {
   isLoading: boolean;
@@ -10,22 +15,18 @@ interface TimestampResultsProps {
 }
 
 export function TimestampResults({ isLoading, content }: TimestampResultsProps) {
-  const [progress, setProgress] = useState(0);
-  const [parsedSections, setParsedSections] = useState<{ timestamp: string; isNew?: boolean }[]>(
-    []
-  );
+  const dispatch = useAppDispatch();
+  const progress = useAppSelector((state) => state.ui.progress);
+  const parsedSections = useAppSelector((state) => state.ui.parsedSections);
   const prevContentRef = useRef<string>("");
 
   // Simulate progress when loading
   useEffect(() => {
     if (isLoading) {
       const interval = setInterval(() => {
-        setProgress((prev) => {
-          // Keep progress between 0-95% while loading
-          // We'll set it to 100% when loading is complete
-          const newValue = prev + Math.random() * 15;
-          return Math.min(newValue, 95);
-        });
+        const current = progress;
+        const newValue = Math.min(current + Math.random() * 15, 95);
+        dispatch(setProgress(newValue));
       }, 200);
 
       return () => {
@@ -33,9 +34,9 @@ export function TimestampResults({ isLoading, content }: TimestampResultsProps) 
       };
     } else if (content) {
       // Set progress to 100% when we have content and loading is complete
-      setProgress(100);
+      dispatch(setProgress(100));
     }
-  }, [isLoading, content]);
+  }, [dispatch, isLoading, content, progress]);
 
   // Parse timestamp content and handle streaming updates
   useEffect(() => {
@@ -82,12 +83,16 @@ export function TimestampResults({ isLoading, content }: TimestampResultsProps) 
           };
         });
 
-        setParsedSections(newSections);
+        dispatch(setParsedSections(newSections));
 
         // After a delay, remove the "new" flag to stop the animation
         if (newSections.some((s) => s.isNew)) {
           const timer = setTimeout(() => {
-            setParsedSections((prev) => prev.map((section) => ({ ...section, isNew: false })));
+            dispatch(
+              setParsedSections(
+                newSections.map((section) => ({ ...section, isNew: false }))
+              )
+            );
           }, 1000);
           return () => clearTimeout(timer);
         }
@@ -95,7 +100,7 @@ export function TimestampResults({ isLoading, content }: TimestampResultsProps) 
 
       prevContentRef.current = content;
     }
-  }, [content]);
+  }, [content, dispatch]);
 
   // Function to copy all timestamps to clipboard
   const copyToClipboard = () => {

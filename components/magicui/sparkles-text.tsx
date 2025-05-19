@@ -1,21 +1,14 @@
 "use client";
 
 import { motion } from "motion/react";
-import { CSSProperties, ReactElement, useEffect, useState } from "react";
+import { CSSProperties, ReactElement, useEffect, useRef } from "react";
 
 import { cn } from "@/lib/utils";
+import { useAppDispatch, useAppSelector } from "@/lib/hooks";
+import { setSparkles, Sparkle } from "@/lib/features/uiSlice";
 
-interface Sparkle {
-  id: string;
-  x: string;
-  y: string;
-  color: string;
-  delay: number;
-  scale: number;
-  lifespan: number;
-}
 
-const Sparkle: React.FC<Sparkle> = ({ id, x, y, color, delay, scale }) => {
+const SparkleIcon: React.FC<Sparkle> = ({ id, x, y, color, delay, scale }) => {
   return (
     <motion.svg
       key={id}
@@ -92,7 +85,12 @@ export const SparklesText: React.FC<SparklesTextProps> = ({
   sparklesCount = 12,
   ...props
 }) => {
-  const [sparkles, setSparkles] = useState<Sparkle[]>([]);
+  const dispatch = useAppDispatch();
+  const sparkles = useAppSelector((state) => state.ui.sparkles);
+  const sparklesRef = useRef<Sparkle[]>(sparkles);
+  useEffect(() => {
+    sparklesRef.current = sparkles;
+  }, [sparkles]);
 
   useEffect(() => {
     const generateStar = (): Sparkle => {
@@ -119,26 +117,27 @@ export const SparklesText: React.FC<SparklesTextProps> = ({
 
     const initializeStars = () => {
       const newSparkles = Array.from({ length: sparklesCount }, generateStar);
-      setSparkles(newSparkles);
+      dispatch(setSparkles(newSparkles));
+      sparklesRef.current = newSparkles;
     };
 
     const updateStars = () => {
-      setSparkles((currentSparkles) =>
-        currentSparkles.map((star) => {
-          if (star.lifespan <= 0) {
-            return generateStar();
-          } else {
-            return { ...star, lifespan: star.lifespan - 0.025 }; // Slower rate of change
-          }
-        })
-      );
+      const updated = sparklesRef.current.map((star) => {
+        if (star.lifespan <= 0) {
+          return generateStar();
+        } else {
+          return { ...star, lifespan: star.lifespan - 0.025 };
+        }
+      });
+      sparklesRef.current = updated;
+      dispatch(setSparkles(updated));
     };
 
     initializeStars();
     const interval = setInterval(updateStars, 250); // Slower interval for dreamier effect
 
     return () => clearInterval(interval);
-  }, [colors.first, colors.second, colors.third, sparklesCount]);
+  }, [colors.first, colors.second, colors.third, sparklesCount, dispatch]);
 
   return (
     <div
@@ -154,7 +153,7 @@ export const SparklesText: React.FC<SparklesTextProps> = ({
     >
       <span className="relative inline-block">
         {sparkles.map((sparkle) => (
-          <Sparkle key={sparkle.id} {...sparkle} />
+          <SparkleIcon key={sparkle.id} {...sparkle} />
         ))}
         <strong className="relative z-10 drop-shadow-sm">{text}</strong>
       </span>
