@@ -2,6 +2,7 @@ import GhibliBackground from "@/components/ui/ghibli-background";
 import type { Metadata } from "next";
 import { ThemeProvider } from "next-themes";
 import { Doto, Geist, Geist_Mono } from "next/font/google";
+import { ReduxProvider } from "@/lib/provider";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -35,8 +36,10 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} ${doto.variable} antialiased`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <GhibliBackground />
-          {children}
+          <ReduxProvider>
+            <GhibliBackground />
+            {children}
+          </ReduxProvider>
         </ThemeProvider>
       </body>
     </html>

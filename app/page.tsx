@@ -9,42 +9,48 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { srtContentSchema, srtEntriesSchema } from "@/lib/schemas";
 import { SrtEntry } from "@/lib/srt-parser";
 import { Doto } from "next/font/google";
-import { useState } from "react";
+import { useAppDispatch, useAppSelector } from "@/lib/hooks";
+import {
+  setSrtContent,
+  setSrtEntries,
+  setIsProcessing,
+  setGeneratedContent,
+  setError,
+  resetState,
+} from "@/lib/features/appSlice";
 
 const doto = Doto({ weight: "900", subsets: ["latin"] });
 
 export default function Home() {
-  const [srtContent, setSrtContent] = useState<string>("");
-  const [srtEntries, setSrtEntries] = useState<SrtEntry[]>([]);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [generatedContent, setGeneratedContent] = useState<string>("");
-  const [error, setError] = useState<string>("");
+  const dispatch = useAppDispatch();
+  const srtContent = useAppSelector((state) => state.app.srtContent);
+  const srtEntries = useAppSelector((state) => state.app.srtEntries);
+  const isProcessing = useAppSelector((state) => state.app.isProcessing);
+  const generatedContent = useAppSelector((state) => state.app.generatedContent);
+  const error = useAppSelector((state) => state.app.error);
 
   // Handle extracted SRT content
   const handleContentExtracted = (content: string, entries: SrtEntry[]) => {
-    // Validate content and entries with Zod
     try {
-      // Validate SRT content
       const contentValidation = srtContentSchema.safeParse({ srtContent: content });
       if (!contentValidation.success) {
-        setError(contentValidation.error.errors[0].message);
+        dispatch(setError(contentValidation.error.errors[0].message));
         return;
       }
 
-      // Validate SRT entries
       const entriesValidation = srtEntriesSchema.safeParse(entries);
       if (!entriesValidation.success) {
-        setError("Invalid SRT entries format");
+        dispatch(setError("Invalid SRT entries format"));
         return;
       }
 
-      setSrtContent(content);
-      setSrtEntries(entries);
-      setGeneratedContent(""); // Reset previous results
-      setError("");
+      dispatch(setSrtContent(content));
+      dispatch(setSrtEntries(entries));
+      dispatch(setGeneratedContent(""));
+      dispatch(setError(""));
     } catch (err) {
       console.error("Validation error:", err);
-      setError("Failed to validate SRT data");
+      dispatch(setError("Failed to validate SRT data"));
     }
   };
 
@@ -52,9 +58,9 @@ export default function Home() {
   const processWithAI = async () => {
     if (!srtContent) return;
 
-    setIsProcessing(true);
-    setError("");
-    setGeneratedContent("");
+    dispatch(setIsProcessing(true));
+    dispatch(setError(""));
+    dispatch(setGeneratedContent(""));
 
     try {
       // Validate SRT content before sending to API
@@ -87,14 +93,14 @@ export default function Home() {
           if (done) break;
           const chunk = decoder.decode(value, { stream: true });
           result += chunk;
-          setGeneratedContent(result);
+          dispatch(setGeneratedContent(result));
         }
       }
     } catch (err) {
       console.error("Error generating timestamps:", err);
-      setError(err instanceof Error ? err.message : "Failed to process your file");
+      dispatch(setError(err instanceof Error ? err.message : "Failed to process your file"));
     } finally {
-      setIsProcessing(false);
+      dispatch(setIsProcessing(false));
     }
   };
 
@@ -235,7 +241,12 @@ export default function Home() {
                 <p className="font-medium">Error</p>
                 <p>{error}</p>
                 {/* Add a retry button when there's an error */}
-                <Button variant="outline" size="sm" className="mt-2" onClick={() => setError("")}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-2"
+                  onClick={() => dispatch(setError(""))}
+                >
                   Dismiss
                 </Button>
               </div>
@@ -251,9 +262,7 @@ export default function Home() {
               {generatedContent && !isProcessing && (
                 <Button
                   onClick={() => {
-                    setSrtContent("");
-                    setSrtEntries([]);
-                    setGeneratedContent("");
+                    dispatch(resetState());
                   }}
                   variant="outline"
                   className="mt-6 mb-8 md:mb-12"
