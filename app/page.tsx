@@ -13,10 +13,10 @@ import { useAppDispatch, useAppSelector } from "@/lib/hooks";
 import {
   setSrtContent,
   setSrtEntries,
-  setIsProcessing,
   setGeneratedContent,
   setError,
   resetState,
+  generateTimestamps,
 } from "@/lib/features/appSlice";
 
 const doto = Doto({ weight: "900", subsets: ["latin"] });
@@ -55,53 +55,9 @@ export default function Home() {
   };
 
   // Process the SRT content with AI
-  const processWithAI = async () => {
+  const processWithAI = () => {
     if (!srtContent) return;
-
-    dispatch(setIsProcessing(true));
-    dispatch(setError(""));
-    dispatch(setGeneratedContent(""));
-
-    try {
-      // Validate SRT content before sending to API
-      const contentValidation = srtContentSchema.safeParse({ srtContent });
-      if (!contentValidation.success) {
-        throw new Error(contentValidation.error.errors[0].message);
-      }
-
-      const response = await fetch("/api/generate", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ srtContent }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to generate timestamps");
-      }
-
-      // Handle streaming response
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-      let result = "";
-
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          const chunk = decoder.decode(value, { stream: true });
-          result += chunk;
-          dispatch(setGeneratedContent(result));
-        }
-      }
-    } catch (err) {
-      console.error("Error generating timestamps:", err);
-      dispatch(setError(err instanceof Error ? err.message : "Failed to process your file"));
-    } finally {
-      dispatch(setIsProcessing(false));
-    }
+    dispatch(generateTimestamps(srtContent));
   };
 
   return (

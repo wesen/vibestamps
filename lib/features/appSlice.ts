@@ -1,5 +1,6 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
 import type { SrtEntry } from '../srt-parser';
+import { srtContentSchema } from '../schemas';
 
 export interface AppState {
   srtContent: string;
@@ -16,6 +17,50 @@ const initialState: AppState = {
   generatedContent: '',
   error: '',
 };
+
+export const generateTimestamps = createAsyncThunk<
+  void,
+  string,
+  { rejectValue: string }
+>('app/generateTimestamps', async (srtContent, { dispatch, rejectWithValue }) => {
+  try {
+    const validation = srtContentSchema.safeParse({ srtContent });
+    if (!validation.success) {
+      return rejectWithValue(validation.error.errors[0].message);
+    }
+
+    const response = await fetch('/api/generate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ srtContent }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      return rejectWithValue(errorData.error || 'Failed to generate timestamps');
+    }
+
+    const reader = response.body?.getReader();
+    const decoder = new TextDecoder();
+    let result = '';
+
+    if (reader) {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        result += chunk;
+        dispatch(setGeneratedContent(result));
+      }
+    }
+  } catch (err) {
+    return rejectWithValue(
+      err instanceof Error ? err.message : 'Failed to process your file'
+    );
+  }
+});
 
 const appSlice = createSlice({
   name: 'app',
@@ -40,6 +85,24 @@ const appSlice = createSlice({
       return initialState;
     },
   },
+  extraReducers: (builder) => {
+    builder
+      .addCase(generateTimestamps.pending, (state) => {
+        state.isProcessing = true;
+        state.error = '';
+        state.generatedContent = '';
+      })
+      .addCase(generateTimestamps.fulfilled, (state) => {
+        state.isProcessing = false;
+      })
+      .addCase(generateTimestamps.rejected, (state, action) => {
+        state.isProcessing = false;
+        state.error =
+          typeof action.payload === 'string'
+            ? action.payload
+            : 'Failed to process your file';
+      });
+  },
 });
 
 export const {
@@ -52,3 +115,5 @@ export const {
 } = appSlice.actions;
 
 export default appSlice.reducer;
+
+export { generateTimestamps };
